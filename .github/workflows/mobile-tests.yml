@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Node.js (v20)
-        uses: actions/checkout@v4
+        uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -27,7 +27,7 @@ jobs:
 
       - name: Install Appium & UiAutomator2 Driver
         run: |
-          npx appium driver install uiautomator2
+          npx appium driver install uiautomator2 || npx appium driver update uiautomator2 || true
 
       - name: Run WebdriverIO Smoke Tests
         env:
