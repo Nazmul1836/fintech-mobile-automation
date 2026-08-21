@@ -63,45 +63,45 @@ describe('Authentication Suite - Mukto Pay UAT', () => {
     });
 
 
-    it('should test invalid OTP verification failure, then complete login with valid OTP', async( => ){
+    it('should test invalid OTP verification failure, then complete login with valid OTP', async () => ){
         Logger.info('Testing OTP verification flow: Invalid OTP followed by Valid OTP...');
-        if(await LoginPage.isDisplayed()) {
-        // Enter primary phone and valid PIN
-        const phoneInput = await LoginPage.getPhoneInput();
-        if (await phoneInput.isExisting() && await phoneInput.isDisplayed()) {
-            try {
-                await phoneInput.click();
-                await phoneInput.setValue(testData.user.phone);
-            } catch (e) { }
-        } else {
-            await LoginPage.enterPhone(testData.user.phone);
+        if (await LoginPage.isDisplayed()) {
+            // Enter primary phone and valid PIN
+            const phoneInput = await LoginPage.getPhoneInput();
+            if (await phoneInput.isExisting() && await phoneInput.isDisplayed()) {
+                try {
+                    await phoneInput.click();
+                    await phoneInput.setValue(testData.user.phone);
+                } catch (e) { }
+            } else {
+                await LoginPage.enterPhone(testData.user.phone);
+            }
+            await LoginPage.enterPin(testData.user.pin);
+            await LoginPage.clickLogin();
+
+            if (await LoginPage.isOtpScreenDisplayed(3000)) {
+                // Step A: Enter Invalid OTP
+                Logger.info('Step A: Entering invalid OTP code (999999)...');
+                await LoginPage.enterOtp(testData.user.invalidOtp);
+                await LoginPage.clickVerifyOtp();
+                await driver.pause(1200);
+                await LoginPage.dismissBlockingAlert();
+
+                // Strict Assertion A: Invalid OTP must retain user on OTP verification screen
+                const isStillOnOtpScreen = await LoginPage.isOtpScreenDisplayed(2000);
+                expect(isStillOnOtpScreen).toBe(true);
+
+                // Step B: Enter Valid OTP right after invalid OTP attempt
+                Logger.info('Step B: Entering valid OTP code (123456) to complete verification...');
+                await LoginPage.enterOtp(testData.user.otp);
+                await LoginPage.clickVerifyOtp();
+                await LoginPage.handleSystemPermission();
+                await driver.pause(2000);
+            } else {
+                Logger.info('Subsequent login (OTP screen bypassed by server), proceeding to dashboard verification.');
+            }
         }
-        await LoginPage.enterPin(testData.user.pin);
-        await LoginPage.clickLogin();
-
-        if (await LoginPage.isOtpScreenDisplayed(3000)) {
-            // Step A: Enter Invalid OTP
-            Logger.info('Step A: Entering invalid OTP code (999999)...');
-            await LoginPage.enterOtp(testData.user.invalidOtp);
-            await LoginPage.clickVerifyOtp();
-            await driver.pause(1200);
-            await LoginPage.dismissBlockingAlert();
-
-            // Strict Assertion A: Invalid OTP must retain user on OTP verification screen
-            const isStillOnOtpScreen = await LoginPage.isOtpScreenDisplayed(2000);
-            expect(isStillOnOtpScreen).toBe(true);
-
-            // Step B: Enter Valid OTP right after invalid OTP attempt
-            Logger.info('Step B: Entering valid OTP code (123456) to complete verification...');
-            await LoginPage.enterOtp(testData.user.otp);
-            await LoginPage.clickVerifyOtp();
-            await LoginPage.handleSystemPermission();
-            await driver.pause(2000);
-        } else {
-            Logger.info('Subsequent login (OTP screen bypassed by server), proceeding to dashboard verification.');
-        }
-    }
-});
+    });
 
 it('should verify successful login status on Dashboard', async () => {
     Logger.info('Verifying user is successfully authenticated on Dashboard home screen...');
@@ -111,4 +111,4 @@ it('should verify successful login status on Dashboard', async () => {
     const isLoginPageDisplayed = await LoginPage.isDisplayed();
     expect(isLoginPageDisplayed).toBe(false);
 });
-});
+

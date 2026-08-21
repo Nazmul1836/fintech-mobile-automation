@@ -73,7 +73,8 @@ class LoginPage extends Page {
                 if (desc && (desc.toLowerCase().includes('login') || desc.toLowerCase().includes('log in'))) {
                     const isEnabled = await el.isEnabled();
                     const enabledAttr = await el.getAttribute('enabled');
-                    return isEnabled && enabledAttr !== 'false';
+                    const clickableAttr = await el.getAttribute('clickable');
+                    return isEnabled && enabledAttr !== 'false' && clickableAttr !== 'false';
                 }
             }
             return false;
@@ -168,16 +169,22 @@ class LoginPage extends Page {
             const phone = await this.getPhoneInput();
             if (await phone.isExisting() && await phone.isDisplayed()) {
                 await phone.click();
-                await phone.clear();
+                if (typeof driver !== 'undefined' && driver.pressKeyCode) {
+                    for (let i = 0; i < 15; i++) {
+                        try { await driver.pressKeyCode(67); } catch (e) { }
+                    }
+                }
+                try { await phone.clear(); } catch (e) { }
             }
             const pin = await this.getPinInput();
             if (await pin.isExisting() && await pin.isDisplayed()) {
                 await pin.click();
                 if (typeof driver !== 'undefined' && driver.pressKeyCode) {
-                    for (let i = 0; i < 8; i++) {
+                    for (let i = 0; i < 15; i++) {
                         try { await driver.pressKeyCode(67); } catch (e) { }
                     }
                 }
+                try { await pin.clear(); } catch (e) { }
             }
             await Helpers.hideKeyboard();
         } catch (e) { }
