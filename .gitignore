@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+reports/
+screenshots/
+logs/
+.tmp/
+.DS_Store
+*.log
+
+*.apk
+

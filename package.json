@@ -1,0 +1,43 @@
+{
+  "name": "fintech-mobile-automation",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Production-grade mobile test automation framework for Mukto Pay UAT financial application using WebdriverIO, Appium, and Page Object Model.",
+  "main": "wdio.conf.js",
+  "scripts": {
+    "test": "wdio run wdio.conf.js",
+    "test:smoke": "wdio run wdio.conf.js --suite smoke",
+    "test:regression": "wdio run wdio.conf.js --suite regression",
+    "test:auth": "wdio run wdio.conf.js --suite authentication",
+    "test:account": "wdio run wdio.conf.js --suite account",
+    "test:transfer": "wdio run wdio.conf.js --suite transfer",
+    "test:favorites": "wdio run wdio.conf.js --suite favorites",
+    "test:autopay": "wdio run wdio.conf.js --suite autopay",
+    "test:transaction": "wdio run wdio.conf.js --suite transaction"
+  },
+  "keywords": [
+    "webdriverio",
+    "appium",
+    "uiautomator2",
+    "android",
+    "mobile-automation",
+    "fintech",
+    "page-object-model",
+    "sdet"
+  ],
+  "author": "Senior Mobile SDET Architect",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@wdio/appium-service": "^9.0.0",
+    "@wdio/cli": "^9.0.0",
+    "@wdio/local-runner": "^9.0.0",
+    "@wdio/mocha-framework": "^9.0.0",
+    "@wdio/spec-reporter": "^9.0.0",
+    "appium": "^2.11.3",
+    "appium-uiautomator2-driver": "^3.8.0",
+    "webdriverio": "^9.0.0"
+  }
+}
