@@ -68,13 +68,17 @@ class SendMoneyPage extends Page {
     }
 
     /**
-     * PIN field for Add Favorite ("core.pin_field")
+     * PIN field for Add Favorite ("field_core.pin_field")
      */
     async getFavoritePinInput() {
         return await this.findFirstElement([
+            '//*[@resource-id="field_core.pin_field"]',
+            '//android.widget.EditText[@resource-id="field_core.pin_field"]',
+            'android=new UiSelector().resourceId("field_core.pin_field")',
             '//*[@resource-id="core.pin_field"]',
             '//android.widget.EditText[@resource-id="core.pin_field"]',
-            'android=new UiSelector().resourceId("core.pin_field")'
+            'android=new UiSelector().resourceId("core.pin_field")',
+            '//android.widget.EditText[contains(@text, "PIN") or contains(@text, "Pin")]'
         ]);
     }
 
@@ -149,8 +153,11 @@ class SendMoneyPage extends Page {
      */
     async getAddFavoriteSuccessSheet() {
         return await this.findFirstElement([
-            '//*[contains(@content-desc, "add successful") or contains(@content-desc, "Your Favorite Number")]',
-            '//*[contains(@content-desc, "Congratulation")]'
+            '//android.widget.Button[@content-desc="Send Money"]',
+            '~Send Money',
+            '//*[contains(@content-desc, "Favorite") or contains(@content-desc, "favorite")]',
+            '//*[contains(@content-desc, "successful") or contains(@text, "successful")]',
+            '//*[contains(@content-desc, "Congratulation") or contains(@text, "Congratulation")]'
         ]);
     }
 
