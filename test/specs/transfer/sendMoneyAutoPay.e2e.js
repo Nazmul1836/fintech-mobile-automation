@@ -289,8 +289,24 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
         expect(initialPinState).toBe(false);
 
         Logger.info(`Entering PIN ${testData.user.pin} to confirm Auto Pay removal...`);
-        await SendMoneyPage.enterPin(testData.user.pin);
-        await driver.pause(1000);
+        const pinInput = await SendMoneyPage.findFirstElement([
+            '//android.widget.EditText',
+            '//*[@resource-id="field_core.pin_field"]',
+            '//*[@resource-id="core.pin_field"]'
+        ], 3000);
+        if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
+            await pinInput.click();
+            await driver.pause(300);
+            const digitKeyMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
+            for (const ch of testData.user.pin.toString()) {
+                const code = digitKeyMap[ch];
+                if (code) {
+                    try { await driver.pressKeyCode(code); } catch (e) { }
+                }
+            }
+            await Helpers.hideKeyboard();
+            await driver.pause(1000);
+        }
 
         const afterPinState = await confirmPinBtn.isEnabled();
         Logger.info(`Business Logic Assertion - Confirm PIN button enabled state after deletion PIN: ${afterPinState}`);

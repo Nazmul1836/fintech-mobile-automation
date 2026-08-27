@@ -603,19 +603,15 @@ class SendMoneyPage extends Page {
     }
 
     /**
-     * Enters PIN into core.pin_field during Add Favorite flow
+     * Enters PIN into core.pin_field during Add / Delete Favorite & Auto Pay flow
      */
     async enterFavoritePin(pin) {
         Logger.info(`Entering Favorite PIN into core.pin_field: ${pin}`);
-        await Helpers.hideKeyboard();
         const pinInput = await this.getFavoritePinInput();
         if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
             await pinInput.click();
-            if (typeof driver !== 'undefined' && driver.pressKeyCode) {
-                for (let i = 0; i < 8; i++) {
-                    try { await driver.pressKeyCode(67); } catch (e) { }
-                }
-            }
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(300);
+
             const digitMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
             for (const char of pin.toString()) {
                 const keycode = digitMap[char];
@@ -624,6 +620,7 @@ class SendMoneyPage extends Page {
                 }
             }
             await Helpers.hideKeyboard();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
         }
     }
 
