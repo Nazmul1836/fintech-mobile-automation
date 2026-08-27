@@ -54,7 +54,7 @@ export const config = {
         platformName: 'Android',
         'appium:automationName': 'UiAutomator2',
         'appium:deviceName': 'Android Device',
-        'appium:app': path.resolve(process.cwd(), process.env.APP_PATH || './apps/app (48).apk'),
+        'appium:app': path.resolve(process.cwd(), process.env.APP_PATH || './apps/app-uat-release.apk'),
         'appium:appPackage': process.env.APP_PACKAGE || 'com.fintech23.muktopay.uat',
         'appium:appActivity': process.env.APP_ACTIVITY || 'fintech23.skt.wallet.fintech23_wallet.MainActivity',
         'appium:autoGrantPermissions': false,

@@ -317,13 +317,14 @@ class SendMoneyPage extends Page {
     }
 
     /**
-     * PIN entry input on Send Money Confirm screen
+     * PIN entry input on Send Money Confirm screen ("field_core.pin_field")
      */
     async getPinInput() {
         return await this.findFirstElement([
-            '//android.widget.EditText[contains(@text, "PIN") or contains(@text, "Pin")]',
-            '//android.widget.EditText[last()]',
-            'android=new UiSelector().className("android.widget.EditText").instance(0)'
+            '//*[@resource-id="field_core.pin_field"]',
+            '//android.widget.EditText[@resource-id="field_core.pin_field"]',
+            'android=new UiSelector().resourceId("field_core.pin_field")',
+            '//android.widget.EditText[contains(@text, "PIN") or contains(@text, "Pin")]'
         ]);
     }
 
@@ -466,28 +467,36 @@ class SendMoneyPage extends Page {
     }
 
     /**
-     * Enters recipient mobile number in core.search_field and selects the recipient
+     * Enters recipient mobile number in search input and selects the recipient item from search results
      */
-    async selectRecipient(phone = '01329484257') {
-        Logger.info(`Searching and selecting recipient number: ${phone} using core.search_field`);
+    async selectRecipient(phone = '01764233618') {
+        Logger.info(`Searching and selecting recipient number: ${phone}`);
         const input = await this.getContactSearchInput();
         if (await input.isExisting() && await input.isDisplayed()) {
             await input.click();
             await input.setValue(phone);
-            await Helpers.hideKeyboard();
-            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
 
-            // Select the matched contact item or typed number option
+            // Select the matched contact item from search results using exact descriptionContains locator
             const contactItem = await this.findFirstElement([
+                `android=new UiSelector().descriptionContains("${phone}")`,
                 `//*[contains(@content-desc, "${phone}")]`,
+                `//*[contains(@text, "${phone}")]`,
                 `//android.view.View[contains(@content-desc, "${phone}")]`,
-                '//android.widget.ImageView[1]',
-                '//android.view.View[2]'
-            ]);
+                `//android.widget.ImageView[contains(@content-desc, "${phone}")]`
+            ], 5000);
+
             if (await contactItem.isExisting() && await contactItem.isDisplayed()) {
-                Logger.info('Clicking matched recipient contact item...');
+                Logger.info(`Clicking matched recipient item for ${phone}...`);
                 await contactItem.click();
-                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+            } else {
+                Logger.warn(`Contact item for ${phone} not found directly, trying Continue button fallback...`);
+                const continueBtn = await this.getContinueButton();
+                if (await continueBtn.isExisting() && await continueBtn.isDisplayed()) {
+                    await continueBtn.click();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+                }
             }
         }
     }

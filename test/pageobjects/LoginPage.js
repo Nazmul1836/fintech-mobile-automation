@@ -15,6 +15,9 @@ class LoginPage extends Page {
 
     async getPinInput() {
         return await this.findFirstElement([
+            '//*[@resource-id="field_core.pin_field"]',
+            '//android.widget.EditText[@resource-id="field_core.pin_field"]',
+            'android=new UiSelector().resourceId("field_core.pin_field")',
             '//android.widget.EditText[2]',
             'android=new UiSelector().className("android.widget.EditText").instance(1)',
             '//android.view.View[@content-desc="Enter PIN"]/following-sibling::android.widget.EditText[1]',

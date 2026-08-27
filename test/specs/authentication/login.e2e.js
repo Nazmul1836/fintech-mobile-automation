@@ -62,8 +62,56 @@ describe('Authentication Suite - Mukto Pay UAT', () => {
         }
     });
 
+    it('should fail login with valid phone and invalid PIN', async () => {
+        Logger.info('Testing login failure with valid phone number and invalid PIN...');
+        if (await LoginPage.isDisplayed()) {
+            await LoginPage.clearInputs();
+            await LoginPage.enterPhone(testData.user.phone);
+            await LoginPage.enterPin(testData.user.invalidPin);
 
-    it('should test invalid OTP verification failure, then complete login with valid OTP', async () => ){
+            const isLoginEnabled = await LoginPage.isLoginButtonEnabled();
+            if (isLoginEnabled) {
+                await LoginPage.clickLogin();
+                await driver.pause(1500);
+                await LoginPage.dismissBlockingAlert();
+
+                // Strict Assertion: User remains on login screen (OTP screen is not displayed)
+                const isOtpDisplayed = await LoginPage.isOtpScreenDisplayed(2000);
+                expect(isOtpDisplayed).toBe(false);
+                const isStillOnLogin = await LoginPage.isDisplayed();
+                expect(isStillOnLogin).toBe(true);
+            }
+        }
+    });
+
+    it('should fail login with invalid phone and valid PIN', async () => {
+        Logger.info('Testing login failure with invalid phone and valid PIN...');
+        if (await LoginPage.isDisplayed()) {
+            const canEditPhone = await LoginPage.canEnterCustomPhone();
+            if (canEditPhone) {
+                await LoginPage.clearInputs();
+                await LoginPage.enterPhone(testData.user.invalidPhone);
+                await LoginPage.enterPin(testData.user.pin);
+
+                const isLoginEnabled = await LoginPage.isLoginButtonEnabled();
+                if (isLoginEnabled) {
+                    await LoginPage.clickLogin();
+                    await driver.pause(1500);
+                    await LoginPage.dismissBlockingAlert();
+
+                    // Strict Assertion: User remains on login screen (OTP screen is not displayed)
+                    const isOtpDisplayed = await LoginPage.isOtpScreenDisplayed(2000);
+                    expect(isOtpDisplayed).toBe(false);
+                    const isStillOnLogin = await LoginPage.isDisplayed();
+                    expect(isStillOnLogin).toBe(true);
+                }
+            } else {
+                Logger.info('Phone input field is locked/pre-filled, skipping custom phone test.');
+            }
+        }
+    });
+
+    it('should test invalid OTP verification failure, then complete login with valid OTP', async () => {
         Logger.info('Testing OTP verification flow: Invalid OTP followed by Valid OTP...');
         if (await LoginPage.isDisplayed()) {
             // Enter primary phone and valid PIN
@@ -103,12 +151,12 @@ describe('Authentication Suite - Mukto Pay UAT', () => {
         }
     });
 
-it('should verify successful login status on Dashboard', async () => {
-    Logger.info('Verifying user is successfully authenticated on Dashboard home screen...');
-    await LoginPage.dismissBlockingAlert();
+    it('should verify successful login status on Dashboard', async () => {
+        Logger.info('Verifying user is successfully authenticated on Dashboard home screen...');
+        await LoginPage.dismissBlockingAlert();
 
-    // Strict Assertion: Login screen is no longer displayed (user authenticated to Dashboard)
-    const isLoginPageDisplayed = await LoginPage.isDisplayed();
-    expect(isLoginPageDisplayed).toBe(false);
+        // Strict Assertion: Login screen is no longer displayed (user authenticated to Dashboard)
+        const isLoginPageDisplayed = await LoginPage.isDisplayed();
+        expect(isLoginPageDisplayed).toBe(false);
+    });
 });
-
