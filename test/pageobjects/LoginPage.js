@@ -2,6 +2,7 @@ import Page from './Page.js';
 import WaitUtils from '../utils/waitUtils.js';
 import Logger from '../utils/logger.js';
 import Helpers from '../utils/helpers.js';
+import path from 'path';
 
 class LoginPage extends Page {
     // Direct, highly reliable Flutter input locators
@@ -131,6 +132,21 @@ class LoginPage extends Page {
                 return;
             }
 
+            // Check App Update popup dismissal buttons (Later, Not Now, Cancel, Skip, Remind Me Later)
+            const updateDismissSelectors = [
+                '//*[@content-desc="Later" or @content-desc="LATER" or @content-desc="Not Now" or @content-desc="NOT NOW" or @content-desc="Cancel" or @content-desc="CANCEL" or @content-desc="Skip" or @content-desc="SKIP" or @content-desc="Remind Me Later" or @content-desc="Ignore"]',
+                '//*[@text="Later" or @text="LATER" or @text="Not Now" or @text="NOT NOW" or @text="Cancel" or @text="CANCEL" or @text="Skip" or @text="SKIP" or @text="Remind Me Later" or @text="Ignore"]'
+            ];
+            for (const selector of updateDismissSelectors) {
+                const btn = await $(selector);
+                if (await btn.isExisting() && await btn.isDisplayed()) {
+                    Logger.info(`Dismissing App Update popup via ${selector}...`);
+                    await btn.click();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+                    return;
+                }
+            }
+
             const alertBtn = await $('//*[@content-desc="OK" or @content-desc="Ok" or @content-desc="CLOSE" or @content-desc="Close" or @content-desc="Got it" or @content-desc="DISMISS" or @text="OK" or @text="Ok"]');
             if (await alertBtn.isExisting() && await alertBtn.isDisplayed()) {
                 Logger.info('Dismissing blocking alert popup...');
@@ -141,7 +157,7 @@ class LoginPage extends Page {
     }
 
     /**
-     * Automatically handles Android system permission dialogs (e.g. "make and manage phone calls").
+     * Automatically handles Android system permission dialogs (e.g. Notification & Location permissions).
      */
     async handleSystemPermission() {
         try {
@@ -150,16 +166,22 @@ class LoginPage extends Page {
                 '//*[@resource-id="com.android.permissioncontroller:id/permission_allow_foreground_only_button"]',
                 '//*[@resource-id="android:id/button1"]',
                 '//*[@text="Allow" or @text="ALLOW" or @content-desc="Allow" or @content-desc="ALLOW"]',
-                '//*[contains(@text, "While using the app") or contains(@text, "WHILE USING THE APP")]'
+                '//*[contains(@text, "While using the app") or contains(@text, "WHILE USING THE APP") or contains(@content-desc, "While using the app")]'
             ];
-            for (const selector of permissionSelectors) {
-                const btn = await $(selector);
-                if (await btn.isExisting() && await btn.isDisplayed()) {
-                    Logger.info(`Granting Android system permission dialog via ${selector}...`);
-                    await btn.click();
-                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
-                    break;
+
+            for (let round = 0; round < 3; round++) {
+                let clickedAny = false;
+                for (const selector of permissionSelectors) {
+                    const btn = await $(selector);
+                    if (await btn.isExisting() && await btn.isDisplayed()) {
+                        Logger.info(`Granting Android system permission dialog (round ${round + 1}) via ${selector}...`);
+                        await btn.click();
+                        clickedAny = true;
+                        if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+                        break;
+                    }
                 }
+                if (!clickedAny) break;
             }
         } catch (e) { }
     }
@@ -204,18 +226,26 @@ class LoginPage extends Page {
         if (await el.isExisting() && await el.isDisplayed()) {
             try {
                 const currentText = await el.getText();
+                Logger.info(`Phone input field current value: "${currentText}", target value: "${phone}"`);
+
                 if (currentText && currentText.includes(phone.slice(-6))) {
                     Logger.info(`Phone number ${phone} is already pre-filled.`);
                     await Helpers.hideKeyboard();
                     return;
                 }
-                Logger.info(`Entering phone number: ${phone}`);
+                Logger.info(`Clearing phone field and entering target phone number: ${phone}`);
                 await el.click();
+                if (typeof driver !== 'undefined' && driver.pressKeyCode) {
+                    for (let i = 0; i < 15; i++) {
+                        try { await driver.pressKeyCode(67); } catch (e) { }
+                    }
+                }
+                try { await el.clear(); } catch (e) { }
                 await el.setValue(phone);
                 await Helpers.hideKeyboard();
                 if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
             } catch (e) {
-                Logger.info('Phone field is locked/pre-filled by device session.');
+                Logger.error(`Failed to enter phone number ${phone}: ${e.message}`);
                 await Helpers.hideKeyboard();
             }
         } else {
@@ -377,6 +407,50 @@ class LoginPage extends Page {
         } catch (e) {
             return false;
         }
+    }
+
+    /**
+     * Resets app data via Appium removeApp/installApp to unbind device session, re-activates app, and logs in as target user.
+     */
+    async resetSessionAndLogin(phone, pin, otp = '123456') {
+        const appPkg = process.env.APP_PACKAGE || 'com.fintech23.muktopay.uat';
+        const appPath = path.resolve(process.cwd(), process.env.APP_PATH || './apps/app-uat-release.apk');
+        Logger.info(`FORCED SESSION UNBIND: Reinstalling ${appPkg} to clear device binding and switch user to ${phone}...`);
+
+        try {
+            if (typeof driver !== 'undefined' && driver.removeApp) {
+                if (await driver.isAppInstalled(appPkg)) {
+                    Logger.info(`Uninstalling ${appPkg} to wipe storage...`);
+                    await driver.removeApp(appPkg);
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+                }
+                Logger.info(`Reinstalling ${appPkg} from ${appPath}...`);
+                await driver.installApp(appPath);
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+            }
+        } catch (e) {
+            Logger.info(`App reinstall unbind note: ${e.message}`);
+        }
+
+        try {
+            Logger.info(`Launching fresh ${appPkg} instance...`);
+            await driver.activateApp(appPkg);
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(3000);
+            await this.handleSystemPermission();
+        } catch (e) { }
+
+        Logger.info(`Executing full login flow for target user: ${phone}...`);
+        await this.enterPhone(phone);
+        await this.enterPin(pin);
+        await this.clickLogin();
+
+        if (await this.isOtpScreenDisplayed(3500)) {
+            Logger.info('OTP verification screen detected: Entering OTP and verifying...');
+            await this.enterOtp(otp);
+            await this.clickVerifyOtp();
+            await this.handleSystemPermission();
+        }
+        if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2500);
     }
 }
 

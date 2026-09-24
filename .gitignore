@@ -9,4 +9,5 @@ logs/
 *.log
 
 *.apk
+scratch/
 

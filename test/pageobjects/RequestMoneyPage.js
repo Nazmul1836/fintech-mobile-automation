@@ -269,6 +269,271 @@ class RequestMoneyPage extends Page {
             return false;
         }
     }
+
+    // ====================
+    // Recipient Side Locators & Actions
+    // ====================
+
+    /**
+     * Received Requests tab icon on Request Money screen
+     */
+    async getReceivedRequestsTab() {
+        return await this.findFirstElement([
+            'android=new UiSelector().className("android.widget.ImageView").instance(1)',
+            '//*[@resource-id="core.received_requests_tab"]',
+            '//android.widget.ImageView[2]'
+        ]);
+    }
+
+    /**
+     * Finds a pending request item (containing "Pending")
+     */
+    async getPendingRequestItem(senderPhone = '') {
+        const selectors = [
+            'android=new UiSelector().descriptionContains("Pending")',
+            '//*[contains(@content-desc, "Pending") or contains(@text, "Pending")]',
+            '//*[contains(@content-desc, "৳") or contains(@content-desc, "TK") or contains(@content-desc, "Taka")]'
+        ];
+        if (senderPhone) {
+            selectors.unshift(`//*[contains(@content-desc, "${senderPhone}")]`);
+        }
+        
+        for (const sel of selectors) {
+            try {
+                const el = await $(sel);
+                if (await el.isExisting()) {
+                    await el.waitForDisplayed({ timeout: 5000 }).catch(() => {});
+                    if (await el.isDisplayed()) return el;
+                }
+            } catch (e) { }
+        }
+        return await this.findFirstElement(selectors);
+    }
+
+    /**
+     * Reject Button on request details modal/screen
+     */
+    async getRejectButton() {
+        return await this.findFirstElement([
+            '~Reject',
+            '//android.widget.Button[@content-desc="Reject" or @text="Reject"]',
+            '//*[contains(@content-desc, "Reject")]'
+        ]);
+    }
+
+    /**
+     * Send Money button to accept money request
+     */
+    async getSendMoneyAcceptButton() {
+        return await this.findFirstElement([
+            '~Send Money',
+            '//android.widget.Button[@content-desc="Send Money" or @text="Send Money"]',
+            '//*[contains(@content-desc, "Send Money")]'
+        ]);
+    }
+
+    /**
+     * Reference input on Send Money / Pay request screen
+     */
+    async getAcceptReferenceInput() {
+        return await this.findFirstElement([
+            '//android.widget.EditText[1]',
+            '//*[@resource-id="field_core.reference_field"]',
+            'android=new UiSelector().className("android.widget.EditText").instance(0)'
+        ]);
+    }
+
+    /**
+     * Proceed Button
+     */
+    async getProceedButton() {
+        return await this.findFirstElement([
+            '~Proceed',
+            '//android.widget.Button[@content-desc="Proceed" or @text="Proceed"]',
+            '//*[contains(@content-desc, "Proceed")]'
+        ]);
+    }
+
+    /**
+     * Payment PIN input field (field_core.pin_field)
+     */
+    async getPaymentPinInput() {
+        return await this.findFirstElement([
+            '//*[@resource-id="field_core.pin_field"]',
+            '//android.widget.EditText[@resource-id="field_core.pin_field"]',
+            'android=new UiSelector().resourceId("field_core.pin_field")',
+            '//android.widget.EditText[1]'
+        ]);
+    }
+
+    /**
+     * Confirm PIN Button
+     */
+    async getConfirmPinButton() {
+        return await this.findFirstElement([
+            '~Confirm PIN',
+            '//android.widget.Button[@content-desc="Confirm PIN" or @text="Confirm PIN"]',
+            '//*[contains(@content-desc, "Confirm PIN")]'
+        ]);
+    }
+
+    /**
+     * Hold to Pay Button
+     */
+    async getHoldToPayButton() {
+        return await this.findFirstElement([
+            '~Hold to Pay',
+            '//android.widget.Button[@content-desc="Hold to Pay" or @text="Hold to Pay"]',
+            '//*[contains(@content-desc, "Hold to Pay")]'
+        ]);
+    }
+
+    /**
+     * Home Button after payment completion
+     */
+    async getHomeButton() {
+        return await this.findFirstElement([
+            '~Home',
+            '//android.widget.Button[@content-desc="Home" or @text="Home"]',
+            '//*[contains(@content-desc, "Home")]'
+        ]);
+    }
+
+    /**
+     * Clicks Received Requests tab
+     */
+    async clickReceivedRequestsTab() {
+        Logger.info('Clicking Received Requests tab...');
+        const tab = await this.getReceivedRequestsTab();
+        if (await tab.isExisting() && await tab.isDisplayed()) {
+            await tab.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(3000);
+        }
+    }
+
+    /**
+     * Rejects a pending money request
+     */
+    async rejectPendingRequest(senderPhone = '') {
+        Logger.info('Selecting pending request to reject...');
+        const item = await this.getPendingRequestItem(senderPhone);
+        if (await item.isExisting() && await item.isDisplayed()) {
+            await item.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+
+            const rejectBtn = await this.getRejectButton();
+            if (await rejectBtn.isExisting() && await rejectBtn.isDisplayed()) {
+                Logger.info('Clicking Reject button...');
+                await rejectBtn.click();
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+            }
+        }
+    }
+
+    /**
+     * Accepts and pays a pending money request
+     */
+    async acceptAndPayPendingRequest(pin = '12121', referenceNote = 'Test', senderPhone = '') {
+        Logger.info('Selecting pending request to accept...');
+        const item = await this.getPendingRequestItem(senderPhone);
+        if (await item.isExisting() && await item.isDisplayed()) {
+            await item.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+
+            const sendMoneyBtn = await this.getSendMoneyAcceptButton();
+            if (await sendMoneyBtn.isExisting() && await sendMoneyBtn.isDisplayed()) {
+                Logger.info('Clicking Send Money button to accept request...');
+                await sendMoneyBtn.click();
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+
+                // Reference Note input
+                const refInput = await this.getAcceptReferenceInput();
+                if (await refInput.isExisting() && await refInput.isDisplayed()) {
+                    Logger.info(`Entering reference note: ${referenceNote}`);
+                    await refInput.click();
+                    await refInput.setValue(referenceNote);
+                    await Helpers.hideKeyboard();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
+                }
+
+                // Click Proceed
+                const proceedBtn = await this.getProceedButton();
+                if (await proceedBtn.isExisting() && await proceedBtn.isDisplayed()) {
+                    Logger.info('Clicking Proceed button...');
+                    await proceedBtn.click();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+                }
+
+                // PIN Entry
+                Logger.info(`Entering PIN into field_core.pin_field: ${pin}`);
+                const pinInput = await this.getPaymentPinInput();
+                if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
+                    await pinInput.click();
+                    if (typeof driver !== 'undefined' && driver.pressKeyCode) {
+                        for (let i = 0; i < 8; i++) {
+                            try { await driver.pressKeyCode(67); } catch (e) { }
+                        }
+                    }
+                    const digitMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
+                    for (const char of pin.toString()) {
+                        const keycode = digitMap[char];
+                        if (keycode && typeof driver !== 'undefined' && driver.pressKeyCode) {
+                            try { await driver.pressKeyCode(keycode); } catch (e) { }
+                        }
+                    }
+                    await Helpers.hideKeyboard();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
+                }
+
+                // Click Confirm PIN
+                const confirmPinBtn = await this.getConfirmPinButton();
+                if (await confirmPinBtn.isExisting() && await confirmPinBtn.isDisplayed()) {
+                    Logger.info('Clicking Confirm PIN button...');
+                    await confirmPinBtn.click();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+                }
+
+                // Hold to Pay
+                await this.performHoldToPay();
+
+                // Click Home
+                const homeBtn = await this.getHomeButton();
+                if (await homeBtn.isExisting() && await homeBtn.isDisplayed()) {
+                    Logger.info('Clicking Home button after payment completion...');
+                    await homeBtn.click();
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+                }
+            }
+        }
+    }
+
+    /**
+     * Performs Hold to Pay long press action
+     */
+    async performHoldToPay() {
+        Logger.info('Performing Hold to Pay gesture...');
+        const btn = await this.getHoldToPayButton();
+        if (await btn.isExisting() && await btn.isDisplayed()) {
+            const location = await btn.getLocation();
+            const size = await btn.getSize();
+            const centerX = Math.round(location.x + size.width / 2);
+            const centerY = Math.round(location.y + size.height / 2);
+
+            try {
+                await driver.action('pointer', { parameters: { pointerType: 'touch' } })
+                    .move({ x: centerX, y: centerY })
+                    .down({ button: 0 })
+                    .pause(3500)
+                    .up({ button: 0 })
+                    .perform();
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(3000);
+            } catch (e) {
+                Logger.info('Fallback: Long press via TouchAction/click...');
+                await btn.click();
+                if (typeof driver !== 'undefined' && driver.pause) await driver.pause(3000);
+            }
+        }
+    }
 }
 
 export default new RequestMoneyPage();

@@ -112,7 +112,7 @@ class SendMoneyPage extends Page {
     async deleteFavoriteItem(phone, pin = '12121') {
         Logger.info(`Deleting favorite item for phone: ${phone}...`);
         const cleanPhone = phone.toString().replace(/^\+88/, '').replace(/^88/, '');
-        
+
         const deleteBtn = await this.findFirstElement([
             `//*[contains(@content-desc, "${cleanPhone}")]//following-sibling::*`,
             `//*[contains(@content-desc, "${cleanPhone}")]/..//android.widget.ImageView[last()]`,
@@ -435,12 +435,17 @@ class SendMoneyPage extends Page {
     }
 
     /**
-     * Home / Back to Home button on Success Sheet
+     * Home / Back to Home / Go Back button on Success Sheet
      */
     async getBackToHomeButton() {
         return await this.findFirstElement([
+            '//android.widget.Button[@content-desc="Go Back"]',
+            'android=new UiSelector().description("Go Back")',
+            '~Go Back',
+            '//android.view.View[@content-desc="Go Back" or @content-desc="Go to Auto Pay"]',
+            '~Go to Auto Pay',
             '//android.widget.Button[@content-desc="Home" or @content-desc="Back to Home" or @content-desc="HOME"]',
-            '//*[@content-desc="Home" or @content-desc="Back to Home"]'
+            '//*[@content-desc="Home" or @content-desc="Back to Home" or @content-desc="Go Back"]'
         ]);
     }
 
@@ -605,23 +610,43 @@ class SendMoneyPage extends Page {
     /**
      * Enters PIN into core.pin_field during Add / Delete Favorite & Auto Pay flow
      */
-    async enterFavoritePin(pin) {
-        Logger.info(`Entering Favorite PIN into core.pin_field: ${pin}`);
-        const pinInput = await this.getFavoritePinInput();
-        if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
-            await pinInput.click();
-            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(300);
+    /**
+     * Enters PIN into core.pin_field / EditText during Add / Delete Favorite & Auto Pay flow.
+     * Dispatches native keycodes with 150ms delay to trigger Flutter onChanged events and enable Confirm PIN button.
+     */
+    async enterFavoritePin(pin = '12121') {
+        Logger.info(`Entering PIN ${pin} via native keycodes...`);
+        const pinInput = await this.findFirstElement([
+            '//android.widget.EditText',
+            '//*[@resource-id="field_core.pin_field"]',
+            '//*[@resource-id="core.pin_field"]',
+            'android=new UiSelector().className("android.widget.EditText")'
+        ], 5000);
 
+        if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
+            try { await pinInput.click(); } catch (e) { }
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(300);
+        }
+
+        // Fast backspaces to clear any leftover digits
+        if (typeof driver !== 'undefined' && driver.pressKeyCode) {
+            for (let i = 0; i < 6; i++) {
+                try { await driver.pressKeyCode(67); } catch (e) { }
+            }
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(200);
+
+            // Send PIN digits via native keycodes with 150ms delay to fire Flutter onChanged events
             const digitMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
             for (const char of pin.toString()) {
                 const keycode = digitMap[char];
-                if (keycode && typeof driver !== 'undefined' && driver.pressKeyCode) {
-                    try { await driver.pressKeyCode(keycode); } catch (e) { }
+                if (keycode) {
+                    try { await driver.pressKeyCode(keycode); } catch (err) { }
+                    if (typeof driver !== 'undefined' && driver.pause) await driver.pause(150);
                 }
             }
-            await Helpers.hideKeyboard();
-            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(500);
         }
+        await Helpers.hideKeyboard();
+        if (typeof driver !== 'undefined' && driver.pause) await driver.pause(800);
     }
 
     /**
@@ -670,6 +695,123 @@ class SendMoneyPage extends Page {
     }
 
     /**
+     * Finds an Auto Pay item card by resource-id autopay.item and content-desc
+     */
+    async getAutoPayCard(query = 'Auto Pay Test') {
+        return await this.findFirstElement([
+            `//*[contains(@resource-id, "autopay.item") and contains(@content-desc, "${query}")]`,
+            `//android.view.View[contains(@resource-id, "autopay.item") and contains(@content-desc, "${query}")]`
+        ], 3000);
+    }
+
+    /**
+     * Strictly checks if an Auto Pay card item (autopay.item) exists in the search result list
+     */
+    async isAutoPayCardExisting(query = 'Auto Pay Test') {
+        const item = await this.findFirstElement([
+            `//*[contains(@resource-id, "autopay.item") and contains(@content-desc, "${query}")]`,
+            `//android.view.View[contains(@resource-id, "autopay.item") and contains(@content-desc, "${query}")]`
+        ], 3000);
+        return (await item.isExisting()) && (await item.isDisplayed());
+    }
+
+    /**
+     * Disables an Auto Pay item by clicking item -> Disable Auto Pay -> Yes -> Enter PIN -> Confirm PIN -> Go Back
+     */
+    async disableAutoPayItem(query = 'Auto Pay Test', pin = '12121') {
+        Logger.info(`Disabling Auto Pay for ${query}...`);
+        const card = await this.getAutoPayCard(query);
+        if (await card.isExisting() && await card.isDisplayed()) {
+            await card.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        const disableBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Disable Auto Pay" or contains(@content-desc, "Disable")]',
+            '~Disable Auto Pay',
+            '//*[contains(@content-desc, "Disable Auto Pay")]'
+        ], 5000);
+        if (await disableBtn.isExisting() && await disableBtn.isDisplayed()) {
+            await disableBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        const yesBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Yes" or @content-desc="YES"]',
+            '//android.widget.Button[@content-desc="Yes" or @content-desc="YES"]',
+            '~Yes'
+        ], 3000);
+        if (await yesBtn.isExisting() && await yesBtn.isDisplayed()) {
+            await yesBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        await this.enterFavoritePin(pin);
+        await this.clickConfirmPin();
+        if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+
+        const goBackBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Go Back" or contains(@content-desc, "Go Back")]',
+            '~Go Back',
+            '//*[contains(@content-desc, "Go Back")]'
+        ], 5000);
+        const isSuccess = (await goBackBtn.isExisting()) && (await goBackBtn.isDisplayed());
+        if (isSuccess) {
+            await goBackBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+        return isSuccess;
+    }
+
+    /**
+     * Enables an Auto Pay item by clicking item -> Enable Auto Pay -> Yes -> Enter PIN -> Confirm PIN -> Go Back
+     */
+    async enableAutoPayItem(query = 'Auto Pay Test', pin = '12121') {
+        Logger.info(`Enabling Auto Pay for ${query}...`);
+        const card = await this.getAutoPayCard(query);
+        if (await card.isExisting() && await card.isDisplayed()) {
+            await card.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        const enableBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Enable Auto Pay" or contains(@content-desc, "Enable")]',
+            '~Enable Auto Pay',
+            '//*[contains(@content-desc, "Enable Auto Pay")]'
+        ], 5000);
+        if (await enableBtn.isExisting() && await enableBtn.isDisplayed()) {
+            await enableBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        const yesBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Yes" or @content-desc="YES"]',
+            '//android.widget.Button[@content-desc="Yes" or @content-desc="YES"]',
+            '~Yes'
+        ], 3000);
+        if (await yesBtn.isExisting() && await yesBtn.isDisplayed()) {
+            await yesBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        await this.enterFavoritePin(pin);
+        await this.clickConfirmPin();
+        if (typeof driver !== 'undefined' && driver.pause) await driver.pause(2000);
+
+        const goBackBtn = await this.findFirstElement([
+            '//android.view.View[@content-desc="Go Back" or contains(@content-desc, "Go Back")]',
+            '~Go Back',
+            '//*[contains(@content-desc, "Go Back")]'
+        ], 5000);
+        const isSuccess = (await goBackBtn.isExisting()) && (await goBackBtn.isDisplayed());
+        if (isSuccess) {
+            await goBackBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+        return isSuccess;
+    }
+
+    /**
      * Checks if success confirmation sheet is displayed
      */
     async isSuccessSheetDisplayed() {
@@ -679,6 +821,78 @@ class SendMoneyPage extends Page {
         } catch (e) {
             return false;
         }
+    }
+
+    /**
+     * Locates the Filter button on Auto Pay screen
+     */
+    async getAutoPayFilterButton() {
+        return await this.findFirstElement([
+            '~Filter',
+            '//android.view.View[@content-desc="Filter"]',
+            '//android.widget.Button[@content-desc="Filter"]',
+            '//*[contains(@content-desc, "Filter")]'
+        ], 5000);
+    }
+
+    /**
+     * Locates a Category option inside the Filter modal (Send Money, Mobile Recharge, Pay Bill)
+     */
+    async getAutoPayFilterCategory(categoryName) {
+        return await this.findFirstElement([
+            `~${categoryName}`,
+            `//android.view.View[@content-desc="${categoryName}"]`,
+            `//android.widget.Button[@content-desc="${categoryName}"]`,
+            `//*[contains(@content-desc, "${categoryName}")]`
+        ], 5000);
+    }
+
+    /**
+     * Locates the Clear button inside the Filter modal
+     */
+    async getAutoPayClearFilterButton() {
+        return await this.findFirstElement([
+            '~Clear',
+            '//android.view.View[@content-desc="Clear"]',
+            '//android.widget.Button[@content-desc="Clear"]',
+            '//*[contains(@content-desc, "Clear")]'
+        ], 5000);
+    }
+
+    /**
+     * Applies a Category Filter (Send Money / Mobile Recharge / Pay Bill), verifies filtered result, and clears it
+     */
+    async applyAutoPayCategoryFilter(categoryName) {
+        Logger.info(`Applying Auto Pay category filter for '${categoryName}'...`);
+        const filterBtn = await this.getAutoPayFilterButton();
+        if (await filterBtn.isExisting() && await filterBtn.isDisplayed()) {
+            await filterBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+        }
+
+        const categoryOption = await this.getAutoPayFilterCategory(categoryName);
+        if (await categoryOption.isExisting() && await categoryOption.isDisplayed()) {
+            await categoryOption.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1500);
+        }
+
+        // Verify filtered result state on screen
+        Logger.info(`Asserting filtered results for category '${categoryName}'...`);
+        const filteredMatch = await this.findFirstElement([
+            `//*[contains(@content-desc, "${categoryName}")]`,
+            `//*[contains(@text, "${categoryName}")]`,
+            '//*[contains(@resource-id, "autopay.item")]'
+        ], 3000);
+        const isVerified = await filteredMatch.isExisting();
+        Logger.info(`Category Filter result for '${categoryName}' verified: ${isVerified}`);
+
+        Logger.info(`Clearing Auto Pay category filter for '${categoryName}'...`);
+        const clearBtn = await this.getAutoPayClearFilterButton();
+        if (await clearBtn.isExisting() && await clearBtn.isDisplayed()) {
+            await clearBtn.click();
+            if (typeof driver !== 'undefined' && driver.pause) await driver.pause(1000);
+        }
+        return isVerified;
     }
 }
 

@@ -20,10 +20,17 @@ export const testData = {
     },
 
     transfer: {
-        receiverPhone: process.env.TEST_RECEIVER_PHONE || '01329484257',
+        receiverPhone: process.env.TEST_RECEIVER_PHONE || '01733730883',
         amount: parseInt(process.env.TEST_TRANSFER_AMOUNT, 10) || 500,
         minAmount: parseInt(process.env.TEST_TRANSFER_MIN_AMOUNT, 10) || 10,
         maxAmount: parseInt(process.env.TEST_TRANSFER_MAX_AMOUNT, 10) || 50000
+    },
+
+    recipientUser: {
+        phone: process.env.TEST_RECEIVER_PHONE || '01733730883',
+        pin: process.env.TEST_RECEIVER_PIN || '12121',
+        otp: process.env.TEST_RECEIVER_OTP || '123456',
+        name: 'Recipient'
     }
 };
 

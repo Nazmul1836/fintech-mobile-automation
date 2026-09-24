@@ -48,6 +48,23 @@ class Helpers {
             Logger.warn(`Scroll gesture skipped: ${err.message}`);
         }
     }
+
+    /**
+     * Generates a valid random 11-digit Bangladeshi mobile phone number.
+     * @param {string} prefix Optional 3-digit BD prefix (e.g. '018', '017', '019', '016', '015', '013')
+     * @returns {string} 11-digit phone number (e.g. '01855853271')
+     */
+    static generateRandomBDPhoneNumber(prefix = '018') {
+        const prefixes = ['018', '017', '019', '016', '015', '013'];
+        const validPrefix = prefixes.includes(prefix) ? prefix : '018';
+        let remainingDigits = '';
+        for (let i = 0; i < 8; i++) {
+            remainingDigits += Math.floor(Math.random() * 10).toString();
+        }
+        const generatedPhone = `${validPrefix}${remainingDigits}`;
+        Logger.info(`Generated random Bangladeshi mobile number: ${generatedPhone}`);
+        return generatedPhone;
+    }
 }
 
 export default Helpers;

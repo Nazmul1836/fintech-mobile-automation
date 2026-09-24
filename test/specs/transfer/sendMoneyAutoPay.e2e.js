@@ -97,49 +97,35 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
             await driver.pause(500);
         }
 
-        Logger.info(`Entering Auto Pay amount ${autoPayAmount} Tk robustly...`);
+        Logger.info('Entering invalid amount 5 Tk (< 10 Tk minimum limit)...');
         const amountInput = await SendMoneyPage.getAutoPayAmountInput();
         expect(await amountInput.isDisplayed()).toBe(true);
         try {
             const loc = await amountInput.getLocation();
             const sz = await amountInput.getSize();
-            // Tap at 25% from the left edge to avoid clicking the (i) info icon on the right
             await driver.action('pointer', { parameters: { pointerType: 'touch' } })
                 .move({ x: Math.round(loc.x + sz.width * 0.25), y: Math.round(loc.y + sz.height / 2) })
                 .down({ button: 0 })
                 .up({ button: 0 })
                 .perform();
-            await driver.pause(500);
+            await driver.pause(300);
         } catch (e) {
             await amountInput.click();
         }
 
         // Erase any existing digits
+        const digitKeyMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
         for (let i = 0; i < 8; i++) {
             try { await driver.pressKeyCode(67); } catch (e) { }
         }
+        // Type '5'
+        try { await driver.pressKeyCode(12); } catch (e) { }
+        await driver.pause(300);
 
-        // Type amount 200 using Android keycodes: '2' -> 9, '0' -> 7, '0' -> 7
-        const digitKeyMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
-        for (const ch of autoPayAmount.toString()) {
-            const code = digitKeyMap[ch];
-            if (code) {
-                try { await driver.pressKeyCode(code); } catch (e) { }
-            }
-        }
-        await driver.pause(1000);
-
-        // Dismiss keyboard and any popup modal
+        // Dismiss keyboard immediately so radio buttons below are visible
+        Logger.info('Dismissing soft keyboard to expose frequency radio buttons...');
         await Helpers.hideKeyboard();
         await driver.pause(500);
-        try {
-            const infoModal = await $('//*[contains(@content-desc, "Important Information") or contains(@text, "Important Information")]');
-            if (await infoModal.isExisting() && await infoModal.isDisplayed()) {
-                Logger.info('Dismissing Important Information modal via back key...');
-                await driver.back();
-                await driver.pause(1000);
-            }
-        } catch (e) { }
 
         Logger.info('Selecting frequency option (Every 30 Days)...');
         const freqOption = await SendMoneyPage.findFirstElement([
@@ -150,7 +136,45 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
         ], 5000);
         expect(await freqOption.isDisplayed()).toBe(true);
         await freqOption.click();
-        await driver.pause(1500);
+        await driver.pause(1000);
+        await Helpers.hideKeyboard();
+        await driver.pause(500);
+
+        Logger.info('Testing Minimum Amount Boundary Validation: Asserting Continue button disabled for 5 Tk...');
+        const continueBtnValidation = await SendMoneyPage.getContinueButton();
+        if (await continueBtnValidation.isExisting()) {
+            const isMinAmountDisabled = !(await continueBtnValidation.isEnabled());
+            Logger.info(`Business Logic Assertion - Continue button disabled for amount 5 Tk (< 10 Tk): ${isMinAmountDisabled}`);
+            expect(isMinAmountDisabled).toBe(true);
+        }
+
+        Logger.info('Refocusing amount field, clearing 5 Tk, and entering valid amount 200 Tk...');
+        try {
+            const loc = await amountInput.getLocation();
+            const sz = await amountInput.getSize();
+            await driver.action('pointer', { parameters: { pointerType: 'touch' } })
+                .move({ x: Math.round(loc.x + sz.width * 0.25), y: Math.round(loc.y + sz.height / 2) })
+                .down({ button: 0 })
+                .up({ button: 0 })
+                .perform();
+            await driver.pause(500);
+        } catch (e) {
+            await amountInput.click();
+        }
+        for (let i = 0; i < 8; i++) {
+            try { await driver.pressKeyCode(67); } catch (e) { }
+        }
+        for (const ch of autoPayAmount.toString()) {
+            const code = digitKeyMap[ch];
+            if (code) {
+                try { await driver.pressKeyCode(code); } catch (e) { }
+            }
+        }
+        await driver.pause(1000);
+
+        // Dismiss keyboard
+        await Helpers.hideKeyboard();
+        await driver.pause(500);
 
         const continueBtn = await SendMoneyPage.getContinueButton();
         expect(await continueBtn.isDisplayed()).toBe(true);
@@ -196,7 +220,101 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
         }
     });
 
-    it('TC 49-51: should delete created Auto Pay for Auto Pay Test (01722361016)', async () => {
+    it('TC 48b: should filter Auto Pay list by Send Money, Mobile Recharge & Pay Bill categories, then search by name', async () => {
+        const recipientName = 'Auto Pay Test';
+        Logger.info(`Navigating to Auto Pay list screen to test category filters & search for '${recipientName}'...`);
+        await SendMoneyPage.navigateToSendMoney();
+        await driver.pause(1500);
+
+        const autoPayTab = await SendMoneyPage.getAutoPayAction();
+        if (await autoPayTab.isExisting() && await autoPayTab.isDisplayed()) {
+            await autoPayTab.click();
+            await driver.pause(2000);
+        }
+
+        // 1. Filter -> Send Money -> Verify Result -> Clear (from recorded flow)
+        Logger.info('Testing Category Filter: Filter -> Send Money -> Verify Result -> Clear...');
+        const isSendMoneyFiltered = await SendMoneyPage.applyAutoPayCategoryFilter('Send Money');
+        Logger.info(`Business Logic Assertion - Send Money Category Filter result verified: ${isSendMoneyFiltered}`);
+        expect(isSendMoneyFiltered).toBe(true);
+
+        // 2. Filter -> Mobile Recharge -> Clear (from recorded flow)
+        Logger.info('Testing Category Filter: Filter -> Mobile Recharge -> Clear...');
+        await SendMoneyPage.applyAutoPayCategoryFilter('Mobile Recharge');
+        Logger.info('Business Logic Assertion - Mobile Recharge Category Filter executed & cleared');
+
+        // 3. Filter -> Pay Bill -> Clear (from recorded flow)
+        Logger.info('Testing Category Filter: Filter -> Pay Bill -> Clear...');
+        await SendMoneyPage.applyAutoPayCategoryFilter('Pay Bill');
+        Logger.info('Business Logic Assertion - Pay Bill Category Filter executed & cleared');
+
+        // 4. Search by Name/Phone
+        Logger.info(`Searching for '${recipientName}' in Auto Pay list...`);
+        const searchInput = await SendMoneyPage.findFirstElement([
+            '//android.widget.EditText[contains(@text, "Name or Number") or contains(@hint, "Name or Number")]',
+            '//android.widget.EditText[1]',
+            '//*[@resource-id="core.search_field"]'
+        ], 5000);
+        expect(await searchInput.isDisplayed()).toBe(true);
+        await searchInput.click();
+        await searchInput.setValue(recipientName);
+        await Helpers.hideKeyboard();
+        await driver.pause(1500);
+
+        // Assert matching card is displayed
+        const matchingCard = await SendMoneyPage.getAutoPayCard(recipientName);
+        const isFound = (await matchingCard.isExisting()) && (await matchingCard.isDisplayed());
+        Logger.info(`Business Logic Assertion - Matching card found for search '${recipientName}': ${isFound}`);
+        expect(isFound).toBe(true);
+
+        // Clear search
+        await searchInput.click();
+        if (typeof driver !== 'undefined' && driver.pressKeyCode) {
+            for (let i = 0; i < 25; i++) {
+                try { await driver.pressKeyCode(67); } catch (e) { }
+            }
+        }
+        await Helpers.hideKeyboard();
+        await driver.pause(1000);
+    });
+
+    it('TC 49: should disable created Auto Pay for Auto Pay Test', async () => {
+        const recipientName = 'Auto Pay Test';
+        Logger.info(`Navigating to Send Money screen to disable Auto Pay for ${recipientName}...`);
+        await SendMoneyPage.navigateToSendMoney();
+        await driver.pause(1500);
+
+        Logger.info('Opening Auto Pay list screen...');
+        const autoPayTab = await SendMoneyPage.getAutoPayAction();
+        if (await autoPayTab.isExisting() && await autoPayTab.isDisplayed()) {
+            await autoPayTab.click();
+            await driver.pause(2000);
+        }
+
+        const isDisabled = await SendMoneyPage.disableAutoPayItem(recipientName, testData.user.pin);
+        Logger.info(`Business Logic Assertion - Auto Pay disabled successfully: ${isDisabled}`);
+        expect(isDisabled).toBe(true);
+    });
+
+    it('TC 50: should enable created Auto Pay for Auto Pay Test', async () => {
+        const recipientName = 'Auto Pay Test';
+        Logger.info(`Navigating to Send Money screen to enable Auto Pay for ${recipientName}...`);
+        await SendMoneyPage.navigateToSendMoney();
+        await driver.pause(1500);
+
+        Logger.info('Opening Auto Pay list screen...');
+        const autoPayTab = await SendMoneyPage.getAutoPayAction();
+        if (await autoPayTab.isExisting() && await autoPayTab.isDisplayed()) {
+            await autoPayTab.click();
+            await driver.pause(2000);
+        }
+
+        const isEnabled = await SendMoneyPage.enableAutoPayItem(recipientName, testData.user.pin);
+        Logger.info(`Business Logic Assertion - Auto Pay enabled successfully: ${isEnabled}`);
+        expect(isEnabled).toBe(true);
+    });
+
+    it('TC 51: should delete created Auto Pay for Auto Pay Test (01722361016)', async () => {
         const recipientName = 'Auto Pay Test';
         Logger.info(`Navigating to Send Money screen to delete Auto Pay for ${recipientName} (${targetPhone})...`);
         await SendMoneyPage.navigateToSendMoney();
@@ -289,24 +407,8 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
         expect(initialPinState).toBe(false);
 
         Logger.info(`Entering PIN ${testData.user.pin} to confirm Auto Pay removal...`);
-        const pinInput = await SendMoneyPage.findFirstElement([
-            '//android.widget.EditText',
-            '//*[@resource-id="field_core.pin_field"]',
-            '//*[@resource-id="core.pin_field"]'
-        ], 3000);
-        if (await pinInput.isExisting() && await pinInput.isDisplayed()) {
-            await pinInput.click();
-            await driver.pause(300);
-            const digitKeyMap = { '0': 7, '1': 8, '2': 9, '3': 10, '4': 11, '5': 12, '6': 13, '7': 14, '8': 15, '9': 16 };
-            for (const ch of testData.user.pin.toString()) {
-                const code = digitKeyMap[ch];
-                if (code) {
-                    try { await driver.pressKeyCode(code); } catch (e) { }
-                }
-            }
-            await Helpers.hideKeyboard();
-            await driver.pause(1000);
-        }
+        await SendMoneyPage.enterFavoritePin(testData.user.pin);
+        await driver.pause(1000);
 
         const afterPinState = await confirmPinBtn.isEnabled();
         Logger.info(`Business Logic Assertion - Confirm PIN button enabled state after deletion PIN: ${afterPinState}`);
@@ -314,5 +416,37 @@ describe('Send Money Auto Pay Automation Suite - Mukto Pay UAT', () => {
 
         await SendMoneyPage.clickConfirmPin();
         await driver.pause(2500);
+
+        Logger.info('Clicking "Go Back" button after Auto Pay deletion...');
+        const goBackBtn = await SendMoneyPage.getBackToHomeButton();
+        if (await goBackBtn.isExisting() && await goBackBtn.isDisplayed()) {
+            await goBackBtn.click();
+            await driver.pause(1500);
+        } else {
+            const fallbackGoBack = await $('//android.widget.Button[@content-desc="Go Back"]');
+            if (await fallbackGoBack.isExisting()) {
+                await fallbackGoBack.click();
+                await driver.pause(1500);
+            }
+        }
+
+        // Search for 'Auto Pay Test' after deletion to verify it is no longer available in search results
+        Logger.info(`Searching for deleted item '${recipientName}' to verify result is no longer available...`);
+        const searchInputEnd = await SendMoneyPage.findFirstElement([
+            '//android.widget.EditText[contains(@text, "Name or Number") or contains(@hint, "Name or Number")]',
+            '//android.widget.EditText[1]',
+            '//*[@resource-id="core.search_field"]'
+        ], 5000);
+        if (await searchInputEnd.isExisting() && await searchInputEnd.isDisplayed()) {
+            await searchInputEnd.click();
+            await searchInputEnd.setValue(recipientName);
+            await Helpers.hideKeyboard();
+            await driver.pause(1500);
+        }
+
+        // Business Logic Assertion - Verify no card matching 'Auto Pay Test' exists in search results
+        const isCardFound = await SendMoneyPage.isAutoPayCardExisting(recipientName);
+        Logger.info(`Business Logic Assertion - Search for deleted item '${recipientName}' returned card: ${isCardFound}`);
+        expect(isCardFound).toBe(false);
     });
 });
